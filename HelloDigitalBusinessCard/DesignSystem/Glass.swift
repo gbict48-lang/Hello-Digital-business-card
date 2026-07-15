@@ -24,9 +24,11 @@ extension View {
     }
 
     private func materialSurface<S: Shape>(_ shape: S) -> some View {
+        // `stroke` (not `strokeBorder`) so this works for any `Shape`, not just
+        // `InsettableShape`.
         self
             .background(.ultraThinMaterial, in: shape)
-            .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+            .overlay(shape.stroke(Color.white.opacity(0.12), lineWidth: 0.5))
     }
 
     /// A rounded-rect glass card surface — the default building block.
