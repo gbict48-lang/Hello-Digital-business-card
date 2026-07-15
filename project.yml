@@ -30,8 +30,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: nl.gbict.hellodigitalbusinesscard
         PRODUCT_NAME: "Hello Digital Business Card"
         INFOPLIST_FILE: HelloDigitalBusinessCard/Resources/Info.plist
-        CODE_SIGN_ENTITLEMENTS: HelloDigitalBusinessCard/Resources/HelloDigitalBusinessCard.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
-        CODE_SIGN_STYLE: Manual
+        # Automatic signing — the App Store Connect API key + -allowProvisioningUpdates
+        # lets Xcode create/download the certificate and profile on CI.
+        CODE_SIGN_STYLE: Automatic

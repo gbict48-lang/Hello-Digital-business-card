@@ -71,39 +71,23 @@ URL into the app under **Settings → Apple Wallet signing endpoint** (or set th
 
 Push to `main` (or run the **Deploy to TestFlight** workflow manually) and
 [`.github/workflows/testflight.yml`](.github/workflows/testflight.yml) will build,
-sign and upload a build. Configure these repository **Settings → Secrets and
-variables → Actions**:
+sign and upload a build.
 
-### App Store Connect API key (for uploading)
+Signing is **fully automatic**: the App Store Connect API key plus
+`-allowProvisioningUpdates` lets Xcode create and download the distribution
+certificate and provisioning profile on the runner — so you only need **four
+secrets**, and no `.p12`/`.mobileprovision` to manage.
 
-Create one at App Store Connect → Users and Access → **Integrations → App Store Connect API**. Give it the *App Manager* role.
-
-| Secret | What it is |
-|---|---|
-| `ASC_KEY_ID` | The key's ID (e.g. `2X9R4HXF34`) |
-| `ASC_ISSUER_ID` | The issuer UUID shown above the keys table |
-| `ASC_KEY_CONTENT_BASE64` | The downloaded `AuthKey_XXXX.p8`, base64-encoded |
-
-### Code signing (for building)
-
-Create an **Apple Distribution** certificate and an **App Store** provisioning
-profile for `nl.gbict.hellodigitalbusinesscard`.
+Create an API key at App Store Connect → Users and Access → **Integrations →
+App Store Connect API**, role **App Manager**. Then add under repository
+**Settings → Secrets and variables → Actions**:
 
 | Secret | What it is |
 |---|---|
-| `BUILD_CERTIFICATE_BASE64` | Your Apple Distribution cert exported as `.p12`, base64-encoded |
-| `P12_PASSWORD` | Password you set when exporting the `.p12` |
-| `BUILD_PROVISION_PROFILE_BASE64` | The App Store `.mobileprovision`, base64-encoded |
-| `PROVISIONING_PROFILE_NAME` | The **name** of that profile (as shown in the Developer portal) |
-| `KEYCHAIN_PASSWORD` | Any random string — used for the temporary CI keychain |
-
-Encode a file to base64:
-
-```bash
-base64 -i AuthKey_XXXX.p8            | pbcopy   # macOS
-base64 -i Distribution.p12           | pbcopy
-base64 -i HelloCard_AppStore.mobileprovision | pbcopy
-```
+| `APP_STORE_CONNECT_API_KEY` | The downloaded `AuthKey_XXXX.p8` — paste the raw file contents (incl. `-----BEGIN PRIVATE KEY-----`). Base64 is also accepted. |
+| `APP_STORE_CONNECT_API_KEY_ID` | The key's ID (e.g. `2X9R4HXF34`) |
+| `APP_STORE_CONNECT_ISSUER_ID` | The issuer UUID shown above the keys table |
+| `APPLE_TEAM_ID` | `476FB5QW34` |
 
 > The build number is set automatically from the CI run number, so every upload
 > is unique. Bump `MARKETING_VERSION` in `project.yml` for a new version.
@@ -111,7 +95,7 @@ base64 -i HelloCard_AppStore.mobileprovision | pbcopy
 ### First run checklist
 
 1. Register the App ID `nl.gbict.hellodigitalbusinesscard` and create the app record in App Store Connect.
-2. Add all the secrets above.
+2. Add the four secrets above.
 3. Push to `main`. Watch the **Actions** tab; the build appears in TestFlight after Apple finishes processing.
 
 ---
