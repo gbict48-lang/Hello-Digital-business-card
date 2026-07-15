@@ -1,6 +1,6 @@
 import Foundation
 import Crypto
-import X509
+@_spi(CMS) import X509
 import ZIPFoundation
 
 /// Signs and packages a `.pkpass` entirely on-device.

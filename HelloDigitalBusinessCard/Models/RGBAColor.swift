@@ -45,4 +45,8 @@ struct RGBAColor: Codable, Hashable {
         self.blue = Double(b)
         self.opacity = Double(a)
     }
+
+    var uiColor: UIColor {
+        UIColor(red: red, green: green, blue: blue, alpha: opacity)
+    }
 }
