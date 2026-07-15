@@ -2,44 +2,72 @@ import Foundation
 import PassKit
 import Observation
 
-/// High-level entry point the UI uses to add a card to Apple Wallet.
+enum WalletError: LocalizedError {
+    case walletUnavailable
+    case notSupportedInBuild
+    case signingFailed(String)
+    case invalidPass
+
+    var errorDescription: String? {
+        switch self {
+        case .walletUnavailable:
+            "Apple Wallet isn't available on this device."
+        case .notSupportedInBuild:
+            "Wallet passes aren't enabled in this build."
+        case .signingFailed(let message):
+            "Couldn't create the Wallet pass: \(message)"
+        case .invalidPass:
+            "The generated pass was invalid."
+        }
+    }
+}
+
+/// Creates and signs a Wallet pass for a card, on-device, ready to present with
+/// `PKAddPassesViewController` (see `AddPassesView`).
 @Observable
 @MainActor
 final class WalletService {
     enum State: Equatable {
         case idle
         case working
-        case ready          // a signed pass is ready to present
+        case ready
         case failed(String)
     }
 
     private(set) var state: State = .idle
     private(set) var preparedPass: PKPass?
 
-    var isWalletAvailable: Bool { PKPassLibrary.isPassLibraryAvailable() }
-    var isConfigured: Bool { WalletConfig.isWalletConfigured }
+    /// Loaded once. Nil when the build has no signing certificate bundled.
+    @ObservationIgnored private let credentials = PassCredentials.load()
 
-    /// Builds and signs a pass for the card, ready to be presented with
-    /// `PKAddPassesViewController` (see `AddPassesView`).
+    /// Whether the "Add to Wallet" button should be offered at all.
+    var canAddToWallet: Bool {
+        PKPassLibrary.isPassLibraryAvailable() && credentials != nil
+    }
+
     func preparePass(for card: BusinessCard) async {
-        guard isWalletAvailable else {
+        guard PKPassLibrary.isPassLibraryAvailable() else {
             state = .failed(WalletError.walletUnavailable.localizedDescription)
             return
         }
-        guard let baseURL = WalletConfig.signingBaseURL else {
-            state = .failed(WalletError.notConfigured.localizedDescription)
+        guard let credentials else {
+            state = .failed(WalletError.notSupportedInBuild.localizedDescription)
             return
         }
 
         state = .working
         preparedPass = nil
         do {
-            let client = PassSigningClient(baseURL: baseURL)
-            let pass = try await client.signedPass(for: card)
-            preparedPass = pass
+            // Signing is CPU-bound — keep it off the main actor.
+            let data = try await Task.detached(priority: .userInitiated) {
+                try PassSigner.makePass(for: card, credentials: credentials)
+            }.value
+            preparedPass = try PKPass(data: data)
             state = .ready
-        } catch {
+        } catch let error as WalletError {
             state = .failed(error.localizedDescription)
+        } catch {
+            state = .failed(WalletError.signingFailed(error.localizedDescription).localizedDescription)
         }
     }
 

@@ -44,6 +44,10 @@ fastlane/*.p12
 AuthKey_*.p8
 .env
 *.pem
+# Wallet pass signing material — injected by CI from secrets, never committed
+HelloDigitalBusinessCard/Resources/pass_certificate.pem
+HelloDigitalBusinessCard/Resources/pass_key.pem
+HelloDigitalBusinessCard/Resources/wwdr.pem
 
 # Node (pass-signing backend)
 server/node_modules/

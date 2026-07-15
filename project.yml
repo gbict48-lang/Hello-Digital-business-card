@@ -13,10 +13,21 @@ settings:
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: "476FB5QW34"
-    SWIFT_VERSION: "5.10"
+    SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     GENERATE_INFOPLIST_FILE: NO
+
+packages:
+  swift-certificates:
+    url: https://github.com/apple/swift-certificates.git
+    from: "1.19.3"
+  swift-crypto:
+    url: https://github.com/apple/swift-crypto.git
+    from: "3.12.3"
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    from: "0.9.20"
 
 targets:
   HelloDigitalBusinessCard:
@@ -25,11 +36,21 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: HelloDigitalBusinessCard
+    dependencies:
+      - package: swift-certificates
+        product: X509
+      - package: swift-crypto
+        product: Crypto
+      - package: swift-crypto
+        product: _CryptoExtras
+      - package: ZIPFoundation
+        product: ZIPFoundation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.gbict.hellodigitalbusinesscard
         PRODUCT_NAME: "Hello Digital Business Card"
         INFOPLIST_FILE: HelloDigitalBusinessCard/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HelloDigitalBusinessCard/Resources/HelloDigitalBusinessCard.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO

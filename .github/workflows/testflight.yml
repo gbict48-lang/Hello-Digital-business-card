@@ -33,6 +33,22 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Inject Wallet signing certificates (optional)
+        env:
+          PASS_CERTIFICATE_PEM_BASE64: ${{ secrets.PASS_CERTIFICATE_PEM_BASE64 }}
+          PASS_KEY_PEM_BASE64: ${{ secrets.PASS_KEY_PEM_BASE64 }}
+          WWDR_PEM_BASE64: ${{ secrets.WWDR_PEM_BASE64 }}
+        run: |
+          RES="HelloDigitalBusinessCard/Resources"
+          if [ -n "$PASS_CERTIFICATE_PEM_BASE64" ] && [ -n "$PASS_KEY_PEM_BASE64" ] && [ -n "$WWDR_PEM_BASE64" ]; then
+            echo -n "$PASS_CERTIFICATE_PEM_BASE64" | base64 --decode > "$RES/pass_certificate.pem"
+            echo -n "$PASS_KEY_PEM_BASE64"         | base64 --decode > "$RES/pass_key.pem"
+            echo -n "$WWDR_PEM_BASE64"             | base64 --decode > "$RES/wwdr.pem"
+            echo "Wallet signing certificates injected."
+          else
+            echo "No Wallet certs set — building without the Add to Wallet button."
+          fi
+
       - name: Generate Xcode project
         run: xcodegen generate
 

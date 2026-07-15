@@ -2,9 +2,10 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(CardStore.self) private var store
+    @Environment(AuthManager.self) private var auth
     @State private var editorCard: BusinessCard?
     @State private var isCreatingNew = false
-    @State private var showsSettings = false
+    @State private var showsProfile = false
 
     var body: some View {
         NavigationStack {
@@ -18,8 +19,8 @@ struct RootView: View {
             .navigationTitle("My Cards")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { showsSettings = true } label: {
-                        Image(systemName: "gearshape")
+                    Button { showsProfile = true } label: {
+                        Image(systemName: "person.crop.circle")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -32,14 +33,14 @@ struct RootView: View {
         .sheet(item: $editorCard) { card in
             CardEditorView(card: card, isNew: isCreatingNew)
         }
-        .sheet(isPresented: $showsSettings) {
-            SettingsView()
+        .sheet(isPresented: $showsProfile) {
+            ProfileView()
         }
     }
 
     private func startNewCard() {
         isCreatingNew = true
-        editorCard = BusinessCard(theme: .default)
+        editorCard = auth.prefilledCard()
     }
 
     private func openEditor(_ card: BusinessCard) {

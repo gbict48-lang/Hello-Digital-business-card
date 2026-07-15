@@ -81,17 +81,19 @@ struct CardDetailView: View {
             .buttonStyle(GlassButtonStyle(prominent: true))
 
             HStack(spacing: 12) {
-                Button {
-                    Task { await wallet.preparePass(for: card) }
-                } label: {
-                    if wallet.state == .working {
-                        ProgressView()
-                    } else {
-                        Label("Apple Wallet", systemImage: "wallet.pass")
+                if wallet.canAddToWallet {
+                    Button {
+                        Task { await wallet.preparePass(for: card) }
+                    } label: {
+                        if wallet.state == .working {
+                            ProgressView()
+                        } else {
+                            Label("Apple Wallet", systemImage: "wallet.pass")
+                        }
                     }
+                    .buttonStyle(GlassButtonStyle())
+                    .disabled(wallet.state == .working)
                 }
-                .buttonStyle(GlassButtonStyle())
-                .disabled(wallet.state == .working)
 
                 Button { exportVCard(card) } label: {
                     Label("Share Card", systemImage: "square.and.arrow.up")

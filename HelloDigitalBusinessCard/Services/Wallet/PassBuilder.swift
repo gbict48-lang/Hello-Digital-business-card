@@ -1,108 +1,100 @@
 import Foundation
 import UIKit
 
-/// Builds the `pass.json` describing an Apple Wallet pass for a business card,
-/// plus the images the pass needs. The result is handed to a signing service
-/// (`PassSigningClient`) which turns it into a signed `.pkpass`.
+/// Builds the raw files that make up an Apple Wallet pass for a business card:
+/// `pass.json` plus the required images. These are signed & zipped by
+/// `PassSigner` into a `.pkpass` entirely on-device — no server involved.
 ///
-/// The pass is a *generic* pass showing the person's name/role on the front and
-/// a QR code (their vCard) on the back-of-card barcode, so anyone can scan it
-/// straight from Wallet and add the contact.
+/// The pass is a *generic* pass showing the person's name/role, with the vCard
+/// encoded as a QR barcode so anyone can scan it from Wallet and save the
+/// contact.
 enum PassBuilder {
 
-    struct PassRequest: Encodable {
-        let passJson: [String: AnyEncodable]
-        let images: [String: String]   // name -> base64 PNG
+    /// Returns the pass files keyed by their in-package filename.
+    static func makeFiles(for card: BusinessCard) -> [String: Data] {
+        var files: [String: Data] = [:]
+
+        if let passJSON = try? JSONSerialization.data(
+            withJSONObject: passDictionary(for: card),
+            options: [.sortedKeys]
+        ) {
+            files["pass.json"] = passJSON
+        }
+
+        for (name, image) in makeImages(for: card) {
+            if let png = image.pngData() { files[name] = png }
+        }
+
+        return files
     }
 
-    /// - Parameters:
-    ///   - card: the business card.
-    ///   - passTypeIdentifier: your Pass Type ID, e.g. `pass.nl.gbict.hellocard`.
-    ///   - teamIdentifier: Apple Developer Team ID.
-    static func makeRequest(
-        for card: BusinessCard,
-        passTypeIdentifier: String,
-        teamIdentifier: String
-    ) -> PassRequest {
-        let accent = card.theme.accent
-        let vcard = VCardBuilder.makeVCard(for: card, includePhoto: false)
+    // MARK: - pass.json
 
-        var fields: [String: AnyEncodable] = [
-            "formatVersion": AnyEncodable(1),
-            "passTypeIdentifier": AnyEncodable(passTypeIdentifier),
-            "teamIdentifier": AnyEncodable(teamIdentifier),
-            "serialNumber": AnyEncodable(card.id.uuidString),
-            "organizationName": AnyEncodable(card.company.isEmpty ? "Hello Card" : card.company),
-            "description": AnyEncodable("\(card.fullName) — Digital Business Card"),
-            "logoText": AnyEncodable(card.fullName),
-            "foregroundColor": AnyEncodable(rgbString(for: card.theme.textColorIsLight ? .white : .black)),
-            "labelColor": AnyEncodable(rgbString(forHex: accent.hexString)),
-            "backgroundColor": AnyEncodable(rgbString(forHex: accent.hexString))
+    private static func passDictionary(for card: BusinessCard) -> [String: Any] {
+        let accent = card.theme.accent
+
+        var dict: [String: Any] = [
+            "formatVersion": 1,
+            "passTypeIdentifier": PassConstants.passTypeIdentifier,
+            "teamIdentifier": PassConstants.teamIdentifier,
+            "serialNumber": card.id.uuidString,
+            "organizationName": card.company.isEmpty ? PassConstants.organizationName : card.company,
+            "description": "\(card.fullName) — Digital Business Card",
+            "logoText": card.fullName,
+            "foregroundColor": "rgb(255, 255, 255)",
+            "labelColor": rgb(from: accent),
+            "backgroundColor": rgb(from: accent),
+            "barcodes": [
+                [
+                    "format": "PKBarcodeFormatQR",
+                    "message": VCardBuilder.makeVCard(for: card, includePhoto: false),
+                    "messageEncoding": "iso-8859-1",
+                    "altText": card.fullName
+                ]
+            ]
         ]
 
-        // Barcode: the vCard, so Wallet shows a scannable QR on the pass.
-        fields["barcodes"] = AnyEncodable([
-            [
-                "format": "PKBarcodeFormatQR",
-                "message": vcard,
-                "messageEncoding": "iso-8859-1",
-                "altText": card.fullName
-            ]
-        ])
-
-        // Generic pass structure.
-        var generic: [String: AnyEncodable] = [:]
-        generic["primaryFields"] = AnyEncodable([
-            field(key: "name", label: "NAME", value: card.fullName)
-        ])
+        var generic: [String: Any] = [
+            "primaryFields": [field("name", "NAME", card.fullName)]
+        ]
 
         var secondary: [[String: String]] = []
-        if !card.jobTitle.isEmpty { secondary.append(field(key: "title", label: "ROLE", value: card.jobTitle)) }
-        if !card.company.isEmpty { secondary.append(field(key: "company", label: "COMPANY", value: card.company)) }
-        if !secondary.isEmpty { generic["secondaryFields"] = AnyEncodable(secondary) }
+        if !card.jobTitle.isEmpty { secondary.append(field("title", "ROLE", card.jobTitle)) }
+        if !card.company.isEmpty { secondary.append(field("company", "COMPANY", card.company)) }
+        if !secondary.isEmpty { generic["secondaryFields"] = secondary }
 
         var auxiliary: [[String: String]] = []
-        if !card.mobile.isEmpty { auxiliary.append(field(key: "mobile", label: "MOBILE", value: card.mobile)) }
-        if !card.email.isEmpty { auxiliary.append(field(key: "email", label: "EMAIL", value: card.email)) }
-        if !auxiliary.isEmpty { generic["auxiliaryFields"] = AnyEncodable(auxiliary) }
+        if !card.mobile.isEmpty { auxiliary.append(field("mobile", "MOBILE", card.mobile)) }
+        if !card.email.isEmpty { auxiliary.append(field("email", "EMAIL", card.email)) }
+        if !auxiliary.isEmpty { generic["auxiliaryFields"] = auxiliary }
 
         var back: [[String: String]] = []
-        if !card.website.isEmpty { back.append(field(key: "web", label: "Website", value: card.website)) }
-        if !card.phone.isEmpty { back.append(field(key: "phone", label: "Phone", value: card.phone)) }
+        if !card.website.isEmpty { back.append(field("web", "Website", card.website)) }
+        if !card.phone.isEmpty { back.append(field("phone", "Phone", card.phone)) }
         for social in card.socials where !social.value.isEmpty {
-            back.append(field(key: "social_\(social.id.uuidString)", label: social.platform.title, value: social.value))
+            back.append(field("social_\(social.id.uuidString)", social.platform.title, social.value))
         }
-        if !back.isEmpty { generic["backFields"] = AnyEncodable(back) }
+        if !back.isEmpty { generic["backFields"] = back }
 
-        fields["generic"] = AnyEncodable(generic)
-
-        return PassRequest(passJson: fields, images: makeImages(for: card))
+        dict["generic"] = generic
+        return dict
     }
 
     // MARK: - Images
 
-    /// Wallet requires at least `icon` (29pt) and benefits from `logo`. We render
-    /// a simple monogram tile so a pass always has valid artwork even before the
-    /// user adds a photo.
-    private static func makeImages(for card: BusinessCard) -> [String: String] {
-        var images: [String: String] = [:]
+    private static func makeImages(for card: BusinessCard) -> [String: UIImage] {
+        var images: [String: UIImage] = [:]
 
-        // icon @1x/2x/3x
-        if let icon1 = monogram(card, size: 29),
-           let icon2 = monogram(card, size: 58),
-           let icon3 = monogram(card, size: 87) {
-            images["icon.png"] = base64(icon1)
-            images["icon@2x.png"] = base64(icon2)
-            images["icon@3x.png"] = base64(icon3)
-        }
+        if let i1 = monogram(card, size: 29) { images["icon.png"] = i1 }
+        if let i2 = monogram(card, size: 58) { images["icon@2x.png"] = i2 }
+        if let i3 = monogram(card, size: 87) { images["icon@3x.png"] = i3 }
 
-        // logo — use the avatar if present, else the monogram.
         if let data = card.photoData, let logo = UIImage(data: data) {
-            images["logo.png"] = base64(resize(logo, to: CGSize(width: 160, height: 50)))
-            images["logo@2x.png"] = base64(resize(logo, to: CGSize(width: 320, height: 100)))
-        } else if let logo = monogram(card, size: 100) {
-            images["logo.png"] = base64(logo)
-            images["logo@2x.png"] = base64(logo)
+            images["logo.png"] = resize(logo, to: CGSize(width: 160, height: 50))
+            images["logo@2x.png"] = resize(logo, to: CGSize(width: 320, height: 100))
+        } else if let logo = monogram(card, size: 90) {
+            images["logo.png"] = logo
+            images["logo@2x.png"] = logo
         }
 
         return images
@@ -112,9 +104,9 @@ enum PassBuilder {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format)
-        return renderer.image { ctx in
+        return renderer.image { _ in
             card.theme.accent.uiColor.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            UIRectFill(CGRect(x: 0, y: 0, width: size, height: size))
             let text = card.initials as NSString
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: size * 0.42, weight: .semibold),
@@ -133,42 +125,13 @@ enum PassBuilder {
         return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
     }
 
-    private static func base64(_ image: UIImage) -> String {
-        (image.pngData() ?? Data()).base64EncodedString()
-    }
+    // MARK: - Helpers
 
-    // MARK: - Small helpers
-
-    private static func field(key: String, label: String, value: String) -> [String: String] {
+    private static func field(_ key: String, _ label: String, _ value: String) -> [String: String] {
         ["key": key, "label": label, "value": value]
     }
 
-    private static func rgbString(forHex hex: String) -> String {
-        guard let c = RGBAColor(hex: hex) else { return "rgb(10,132,255)" }
-        return "rgb(\(Int(c.red * 255)),\(Int(c.green * 255)),\(Int(c.blue * 255)))"
+    private static func rgb(from color: RGBAColor) -> String {
+        "rgb(\(Int(color.red * 255)), \(Int(color.green * 255)), \(Int(color.blue * 255)))"
     }
-
-    private static func rgbString(for color: UIColor) -> String {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return "rgb(\(Int(r * 255)),\(Int(g * 255)),\(Int(b * 255)))"
-    }
-}
-
-private extension CardTheme {
-    var textColorIsLight: Bool { prefersLightText }
-}
-
-extension RGBAColor {
-    var uiColor: UIColor {
-        UIColor(red: red, green: green, blue: blue, alpha: opacity)
-    }
-}
-
-/// Type-erased `Encodable` so we can build the dynamic `pass.json` tree and
-/// still serialise it with `JSONEncoder`.
-struct AnyEncodable: Encodable {
-    private let encodeClosure: (Encoder) throws -> Void
-    init<T: Encodable>(_ value: T) { encodeClosure = value.encode }
-    func encode(to encoder: Encoder) throws { try encodeClosure(encoder) }
 }
