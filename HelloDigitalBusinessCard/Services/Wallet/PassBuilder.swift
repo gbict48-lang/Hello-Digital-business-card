@@ -1,18 +1,18 @@
 import Foundation
 import UIKit
+import SwiftUI
 
-/// Builds the raw files for an Apple Wallet pass for a business card:
-/// `pass.json` plus images. Signed & zipped on-device by `PassSigner`.
+/// Builds the raw files for an Apple Wallet pass. Signed & zipped on-device by
+/// `PassSigner`.
 ///
-/// Apple Wallet has a fixed layout, so we can't reproduce the app card exactly
-/// (no gradient backgrounds). Instead we render a **strip banner** — a gradient
-/// with the person's circular photo + name + role — so the card's design still
-/// comes across. The vCard is the QR barcode so it can be scanned from Wallet.
+/// Follows Apple's Wallet HIG: a clean `generic` pass with ONE solid background
+/// colour, high-contrast text, a small set of fields, and the photo shown as a
+/// square thumbnail (Wallet rounds it) — never a stretched image. The in-app
+/// `WalletPassPreview` mirrors this exactly.
 enum PassBuilder {
 
     static func makeFiles(for card: BusinessCard) -> [String: Data] {
         var files: [String: Data] = [:]
-
         if let passJSON = try? JSONSerialization.data(
             withJSONObject: passDictionary(for: card), options: [.sortedKeys]
         ) {
@@ -24,13 +24,10 @@ enum PassBuilder {
         return files
     }
 
-    // MARK: - pass.json (storeCard with a designed strip)
+    // MARK: - pass.json
 
     private static func passDictionary(for card: BusinessCard) -> [String: Any] {
-        let accent = card.theme.accent
-        let lightBackground = luminance(accent) > 0.6
-        let fg = lightBackground ? "rgb(17, 17, 20)" : "rgb(255, 255, 255)"
-        let label = lightBackground ? "rgb(70, 70, 74)" : "rgb(235, 235, 245)"
+        let appearance = PassAppearance(card: card)
 
         var dict: [String: Any] = [
             "formatVersion": 1,
@@ -39,9 +36,9 @@ enum PassBuilder {
             "serialNumber": card.id.uuidString,
             "organizationName": card.company.isEmpty ? PassConstants.organizationName : card.company,
             "description": "\(card.fullName) — Digital Business Card",
-            "foregroundColor": fg,
-            "labelColor": label,
-            "backgroundColor": rgb(from: accent),
+            "foregroundColor": appearance.foregroundRGB,
+            "labelColor": appearance.labelRGB,
+            "backgroundColor": appearance.backgroundRGB,
             "barcodes": [[
                 "format": "PKBarcodeFormatQR",
                 "message": VCardBuilder.makeVCard(for: card, includePhoto: false),
@@ -49,26 +46,27 @@ enum PassBuilder {
                 "altText": card.fullName
             ]]
         ]
+        if !card.company.isEmpty { dict["logoText"] = card.company }
 
-        var store: [String: Any] = [:]
-
-        var header: [[String: String]] = []
-        if !card.jobTitle.isEmpty { header.append(field("role", "", card.jobTitle)) }
-        if !header.isEmpty { store["headerFields"] = header }
+        var generic: [String: Any] = [
+            "primaryFields": [field("name", "", card.fullName)]
+        ]
 
         var secondary: [[String: String]] = []
-        if !card.email.isEmpty { secondary.append(field("email", "EMAIL", card.email)) }
-        if !card.phone.isEmpty { secondary.append(field("phone", "PHONE", card.phone)) }
-        else if !card.mobile.isEmpty { secondary.append(field("mobile", "MOBILE", card.mobile)) }
-        if !secondary.isEmpty { store["secondaryFields"] = secondary }
+        if !card.jobTitle.isEmpty { secondary.append(field("role", "ROLE", card.jobTitle)) }
+        if card.company.isEmpty, !card.city.isEmpty {
+            secondary.append(field("city", "LOCATION", card.city))
+        }
+        if !secondary.isEmpty { generic["secondaryFields"] = secondary }
 
         var auxiliary: [[String: String]] = []
-        if !card.website.isEmpty { auxiliary.append(field("web", "WEBSITE", card.website)) }
-        if !card.mobile.isEmpty && !card.phone.isEmpty { auxiliary.append(field("mobile", "MOBILE", card.mobile)) }
-        if !auxiliary.isEmpty { store["auxiliaryFields"] = auxiliary }
+        if !card.email.isEmpty { auxiliary.append(field("email", "EMAIL", card.email)) }
+        let firstPhone = card.phone.isEmpty ? card.mobile : card.phone
+        if !firstPhone.isEmpty { auxiliary.append(field("phone", "PHONE", firstPhone)) }
+        if !auxiliary.isEmpty { generic["auxiliaryFields"] = auxiliary }
 
         var back: [[String: String]] = []
-        if !card.mobile.isEmpty { back.append(field("bmobile", "Mobile", card.mobile)) }
+        if !card.mobile.isEmpty && card.mobile != firstPhone { back.append(field("bmobile", "Mobile", card.mobile)) }
         if !card.website.isEmpty { back.append(field("bweb", "Website", card.website)) }
         let address = [card.street, card.postalCode, card.city, card.country]
             .filter { !$0.isEmpty }.joined(separator: ", ")
@@ -77,9 +75,9 @@ enum PassBuilder {
             back.append(field("bsoc_\(social.id.uuidString)", social.platform.title, social.value))
         }
         if !card.notes.isEmpty { back.append(field("bnotes", "Notes", card.notes)) }
-        if !back.isEmpty { store["backFields"] = back }
+        if !back.isEmpty { generic["backFields"] = back }
 
-        dict["storeCard"] = store
+        dict["generic"] = generic
         return dict
     }
 
@@ -88,134 +86,78 @@ enum PassBuilder {
     private static func makeImages(for card: BusinessCard) -> [String: UIImage] {
         var images: [String: UIImage] = [:]
 
-        // Required icon (square monogram, never stretched).
-        if let i1 = monogram(card, points: 29, scale: 1) { images["icon.png"] = i1 }
-        if let i2 = monogram(card, points: 29, scale: 2) { images["icon@2x.png"] = i2 }
-        if let i3 = monogram(card, points: 29, scale: 3) { images["icon@3x.png"] = i3 }
+        // Required icon (square monogram — used on the lock screen / notifications).
+        for scale in [1, 2, 3] as [CGFloat] {
+            if let icon = monogram(card, points: 29, scale: scale) {
+                images[scale == 1 ? "icon.png" : "icon@\(Int(scale))x.png"] = icon
+            }
+        }
 
-        // Small square logo top-left (monogram — square, no stretch).
-        if let l1 = monogram(card, points: 40, scale: 1) { images["logo.png"] = l1 }
-        if let l2 = monogram(card, points: 40, scale: 2) { images["logo@2x.png"] = l2 }
-        if let l3 = monogram(card, points: 40, scale: 3) { images["logo@3x.png"] = l3 }
-
-        // The designed banner.
-        images["strip.png"] = stripImage(for: card, scale: 1)
-        images["strip@2x.png"] = stripImage(for: card, scale: 2)
-        images["strip@3x.png"] = stripImage(for: card, scale: 3)
-
+        // Square photo thumbnail (Wallet rounds it). Only when a photo exists.
+        if card.photoData != nil {
+            for scale in [1, 2, 3] as [CGFloat] {
+                if let thumb = thumbnail(card, points: 90, scale: scale) {
+                    images[scale == 1 ? "thumbnail.png" : "thumbnail@\(Int(scale))x.png"] = thumb
+                }
+            }
+        }
         return images
     }
 
-    /// Renders the gradient banner with a circular photo/monogram + name + role.
-    private static func stripImage(for card: BusinessCard, scale: CGFloat) -> UIImage {
-        let size = CGSize(width: 375, height: 144)
+    private static func thumbnail(_ card: BusinessCard, points: CGFloat, scale: CGFloat) -> UIImage? {
+        guard let data = card.photoData, let image = UIImage(data: data) else { return nil }
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-
-        return renderer.image { context in
-            let cg = context.cgContext
-
-            // Gradient background.
-            let space = CGColorSpaceCreateDeviceRGB()
-            let colors = [card.theme.accent.uiColor.cgColor, card.theme.secondary.uiColor.cgColor] as CFArray
-            if let gradient = CGGradient(colorsSpace: space, colors: colors, locations: [0, 1]) {
-                cg.drawLinearGradient(gradient, start: .zero,
-                                      end: CGPoint(x: size.width, y: size.height), options: [])
-            }
-
-            let onLight = luminance(card.theme.accent) > 0.6
-            let textColor: UIColor = onLight ? UIColor(white: 0.07, alpha: 1) : .white
-
-            // Circular avatar.
-            let d: CGFloat = 96
-            let circle = CGRect(x: 22, y: (size.height - d) / 2, width: d, height: d)
-            cg.saveGState()
-            UIBezierPath(ovalIn: circle).addClip()
-            if let data = card.photoData, let image = UIImage(data: data) {
-                drawAspectFill(image, in: circle)
-            } else {
-                (onLight ? UIColor(white: 0, alpha: 0.15) : UIColor(white: 1, alpha: 0.25)).setFill()
-                cg.fill(circle)
-                drawCentered(card.initials, in: circle,
-                             font: .systemFont(ofSize: 38, weight: .bold), color: textColor)
-            }
-            cg.restoreGState()
-            cg.setStrokeColor(UIColor.white.withAlphaComponent(0.55).cgColor)
-            cg.setLineWidth(2)
-            cg.strokeEllipse(in: circle.insetBy(dx: 1, dy: 1))
-
-            // Name + role with a soft shadow for legibility on any gradient.
-            let shadow = NSShadow()
-            shadow.shadowColor = UIColor.black.withAlphaComponent(0.28)
-            shadow.shadowBlurRadius = 4
-            shadow.shadowOffset = CGSize(width: 0, height: 1)
-
-            let textX = circle.maxX + 20
-            let textWidth = size.width - textX - 16
-
-            let name = card.fullName.isEmpty ? "Your Name" : card.fullName
-            (name as NSString).draw(in: CGRect(x: textX, y: 40, width: textWidth, height: 40),
-                                    withAttributes: [
-                                        .font: UIFont.systemFont(ofSize: 30, weight: .bold),
-                                        .foregroundColor: textColor,
-                                        .shadow: shadow
-                                    ])
-            if !card.displayTitle.isEmpty {
-                (card.displayTitle as NSString).draw(
-                    in: CGRect(x: textX, y: 80, width: textWidth, height: 24),
-                    withAttributes: [
-                        .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                        .foregroundColor: textColor.withAlphaComponent(0.9),
-                        .shadow: shadow
-                    ])
-            }
+        let rect = CGRect(x: 0, y: 0, width: points, height: points)
+        return UIGraphicsImageRenderer(size: rect.size, format: format).image { _ in
+            let iw = image.size.width, ih = image.size.height
+            let s = max(rect.width / iw, rect.height / ih)
+            let w = iw * s, h = ih * s
+            image.draw(in: CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h))
         }
-    }
-
-    // MARK: - Drawing helpers
-
-    private static func drawAspectFill(_ image: UIImage, in rect: CGRect) {
-        let iw = image.size.width, ih = image.size.height
-        guard iw > 0, ih > 0 else { return }
-        let scale = max(rect.width / iw, rect.height / ih)
-        let w = iw * scale, h = ih * scale
-        image.draw(in: CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h))
-    }
-
-    private static func drawCentered(_ text: String, in rect: CGRect, font: UIFont, color: UIColor) {
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
-        let s = text as NSString
-        let size = s.size(withAttributes: attrs)
-        s.draw(at: CGPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2),
-               withAttributes: attrs)
     }
 
     private static func monogram(_ card: BusinessCard, points: CGFloat, scale: CGFloat) -> UIImage? {
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: points, height: points), format: format)
-        return renderer.image { _ in
+        return UIGraphicsImageRenderer(size: CGSize(width: points, height: points), format: format).image { _ in
             card.theme.accent.uiColor.setFill()
             UIRectFill(CGRect(x: 0, y: 0, width: points, height: points))
-            drawCentered(card.initials, in: CGRect(x: 0, y: 0, width: points, height: points),
-                         font: .systemFont(ofSize: points * 0.42, weight: .semibold), color: .white)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: points * 0.42, weight: .semibold),
+                .foregroundColor: UIColor.white
+            ]
+            let s = card.initials as NSString
+            let size = s.size(withAttributes: attrs)
+            s.draw(at: CGPoint(x: (points - size.width) / 2, y: (points - size.height) / 2),
+                   withAttributes: attrs)
         }
     }
-
-    // MARK: - Small helpers
 
     private static func field(_ key: String, _ label: String, _ value: String) -> [String: String] {
         ["key": key, "label": label, "value": value]
     }
+}
 
-    private static func luminance(_ c: RGBAColor) -> Double {
-        0.299 * c.red + 0.587 * c.green + 0.114 * c.blue
-    }
+/// Shared colour logic so the real pass and the in-app preview always match.
+struct PassAppearance {
+    let background: Color
+    let foreground: Color
+    let label: Color
+    let backgroundRGB: String
+    let foregroundRGB: String
+    let labelRGB: String
 
-    private static func rgb(from color: RGBAColor) -> String {
-        "rgb(\(Int(color.red * 255)), \(Int(color.green * 255)), \(Int(color.blue * 255)))"
+    init(card: BusinessCard) {
+        let accent = card.theme.accent
+        let isLight = (0.299 * accent.red + 0.587 * accent.green + 0.114 * accent.blue) > 0.6
+        background = accent.color
+        foreground = isLight ? Color(hex: "#111114") : .white
+        label = isLight ? Color(hex: "#5A5A5F") : Color(white: 1, opacity: 0.82)
+        backgroundRGB = "rgb(\(Int(accent.red * 255)), \(Int(accent.green * 255)), \(Int(accent.blue * 255)))"
+        foregroundRGB = isLight ? "rgb(17, 17, 20)" : "rgb(255, 255, 255)"
+        labelRGB = isLight ? "rgb(90, 90, 95)" : "rgb(235, 235, 245)"
     }
 }

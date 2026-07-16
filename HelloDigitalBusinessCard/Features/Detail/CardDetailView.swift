@@ -8,7 +8,7 @@ struct CardDetailView: View {
     @State private var wallet = WalletService()
     @State private var showsQR = false
     @State private var showsShareSheet = false
-    @State private var showsAddPass = false
+    @State private var showsWalletPreview = false
     @State private var shareItems: [Any] = []
 
     private var card: BusinessCard? { store.cards.first { $0.id == cardID } }
@@ -56,17 +56,8 @@ struct CardDetailView: View {
         .sheet(isPresented: $showsShareSheet) {
             ShareSheet(items: shareItems)
         }
-        .fullScreenCover(isPresented: $showsAddPass) {
-            if let pass = wallet.preparedPass {
-                AddPassesView(pass: pass) { _ in
-                    showsAddPass = false
-                    wallet.reset()
-                }
-                .ignoresSafeArea()
-            }
-        }
-        .onChange(of: wallet.state) { _, state in
-            if state == .ready { showsAddPass = true }
+        .sheet(isPresented: $showsWalletPreview) {
+            WalletPreviewSheet(cardID: cardID)
         }
     }
 
@@ -83,30 +74,17 @@ struct CardDetailView: View {
             HStack(spacing: 12) {
                 if wallet.canAddToWallet {
                     Button {
-                        Task { await wallet.preparePass(for: card) }
+                        showsWalletPreview = true
                     } label: {
-                        if wallet.state == .working {
-                            ProgressView()
-                        } else {
-                            Label("Apple Wallet", systemImage: "wallet.pass")
-                        }
+                        Label("Apple Wallet", systemImage: "wallet.pass")
                     }
                     .buttonStyle(GlassButtonStyle())
-                    .disabled(wallet.state == .working)
                 }
 
                 Button { exportVCard(card) } label: {
                     Label("Share Card", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(GlassButtonStyle())
-            }
-
-            if case .failed(let message) = wallet.state {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
             }
         }
         .padding(.horizontal, 20)
