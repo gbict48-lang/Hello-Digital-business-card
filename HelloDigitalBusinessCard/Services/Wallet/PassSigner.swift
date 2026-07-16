@@ -25,12 +25,20 @@ enum PassSigner {
         files["manifest.json"] = manifestData
 
         // 3. detached CMS signature of the manifest.
+        //
+        // `signingTime` is REQUIRED here: without it, swift-certificates signs
+        // the content directly with NO signed attributes, and Apple Wallet
+        // rejects that ("the pass isn't valid"). Passing a signing time makes it
+        // emit the standard CMS signed-attributes form (content-type,
+        // message-digest, signing-time) that PassKit expects — matching what
+        // `openssl smime -sign` / Apple's `signpass` produce.
         let signature = try CMS.sign(
             manifestData,
             signatureAlgorithm: .sha256WithRSAEncryption,
             additionalIntermediateCertificates: [credentials.wwdr],
             certificate: credentials.certificate,
-            privateKey: credentials.privateKey
+            privateKey: credentials.privateKey,
+            signingTime: Date()
         )
         files["signature"] = Data(signature)
 
