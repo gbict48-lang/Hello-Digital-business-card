@@ -3,7 +3,7 @@ import SwiftUI
 /// Visual style of a business card. `Codable` so a card can be exported, shared
 /// and restored with its look intact.
 struct CardTheme: Codable, Hashable {
-    enum Style: String, CaseIterable, Identifiable, Hashable {
+    enum Style: String, Codable, CaseIterable, Identifiable, Hashable {
         case gradient      // vivid accent → secondary diagonal
         case aurora        // soft glowing blobs on a deep base
         case glass         // vivid gradient with a frosted info panel
