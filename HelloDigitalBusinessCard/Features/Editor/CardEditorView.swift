@@ -64,7 +64,7 @@ struct CardEditorView: View {
                         .lineLimit(2...5)
                 }
 
-                ThemePickerSection(theme: $draft.theme)
+                ThemePickerSection(card: $draft)
             }
             .navigationTitle(isNew ? "New Card" : "Edit Card")
             .navigationBarTitleDisplayMode(.inline)
