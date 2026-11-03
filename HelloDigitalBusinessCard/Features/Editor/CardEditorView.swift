@@ -40,7 +40,7 @@ struct CardEditorView: View {
                 Section {
                     if purchases.isPro {
                         HStack {
-                            PhotoPickerButton(photoData: $draft.logoData, label: "Company logo", icon: "building.2.crop.circle")
+                            PhotoPickerButton(photoData: $draft.logoData, label: "Company logo", icon: "building.2.crop.circle", aspect: 2.6, circle: false)
                             if draft.logoData != nil {
                                 Spacer()
                                 Button(role: .destructive) { draft.logoData = nil } label: { Text("Remove") }

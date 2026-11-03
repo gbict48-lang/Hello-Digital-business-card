@@ -6,10 +6,13 @@ struct CardDetailView: View {
     var onEdit: (BusinessCard) -> Void
 
     @State private var wallet = WalletService()
-    @State private var showsQR = false
-    @State private var showsShareSheet = false
-    @State private var showsWalletPreview = false
+    @State private var activeSheet: ActiveSheet?
     @State private var shareItems: [Any] = []
+
+    private enum ActiveSheet: Int, Identifiable {
+        case qr, wallet, share
+        var id: Int { rawValue }
+    }
 
     private var card: BusinessCard? { store.cards.first { $0.id == cardID } }
 
@@ -50,14 +53,15 @@ struct CardDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showsQR) {
-            if let card { ShareCardView(card: card) }
-        }
-        .sheet(isPresented: $showsShareSheet) {
-            ShareSheet(items: shareItems)
-        }
-        .sheet(isPresented: $showsWalletPreview) {
-            WalletPreviewSheet(cardID: cardID)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .qr:
+                if let card { ShareCardView(card: card) }
+            case .wallet:
+                WalletPreviewSheet(cardID: cardID)
+            case .share:
+                ShareSheet(items: shareItems)
+            }
         }
     }
 
@@ -66,7 +70,7 @@ struct CardDetailView: View {
     @ViewBuilder
     private func actions(for card: BusinessCard) -> some View {
         VStack(spacing: 12) {
-            Button { showsQR = true } label: {
+            Button { activeSheet = .qr } label: {
                 Label("Share via QR", systemImage: "qrcode")
             }
             .buttonStyle(GlassButtonStyle(prominent: true))
@@ -74,7 +78,7 @@ struct CardDetailView: View {
             HStack(spacing: 12) {
                 if wallet.canAddToWallet {
                     Button {
-                        showsWalletPreview = true
+                        activeSheet = .wallet
                     } label: {
                         Label("Apple Wallet", systemImage: "wallet.pass")
                     }
@@ -95,7 +99,8 @@ struct CardDetailView: View {
         if let file = VCardExporter.exportFile(for: card) { items.append(file) }
         if let qr = QRCodeGenerator.vCardImage(for: card) { items.append(qr) }
         shareItems = items
-        showsShareSheet = true
+        // Present on the next runloop so the share sheet has its items ready.
+        DispatchQueue.main.async { activeSheet = .share }
     }
 }
 
