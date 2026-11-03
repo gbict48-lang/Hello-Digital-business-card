@@ -67,8 +67,11 @@ struct BusinessCard: Codable, Hashable, Identifiable {
     var notes: String = ""
     var socials: [SocialLink] = []
 
-    /// Avatar / logo, stored as PNG data so the card is self-contained.
+    /// Profile photo, stored as PNG data so the card is self-contained.
     var photoData: Data?
+
+    /// Optional company logo (PNG), shown on the card and as the Wallet pass logo.
+    var logoData: Data?
 
     var theme: CardTheme = .default
 
@@ -76,11 +79,17 @@ struct BusinessCard: Codable, Hashable, Identifiable {
     var updatedAt: Date = Date()
 
     var fullName: String {
-        [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
+        [firstName, lastName]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     var displayTitle: String {
-        [jobTitle, company].filter { !$0.isEmpty }.joined(separator: " · ")
+        [jobTitle, company]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
     }
 
     var initials: String {

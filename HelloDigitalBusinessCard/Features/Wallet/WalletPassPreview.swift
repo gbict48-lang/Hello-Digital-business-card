@@ -33,7 +33,13 @@ struct WalletPassPreview: View {
     // MARK: - Sections
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
+            if let data = card.logoData, let logo = UIImage(data: data) {
+                Image(uiImage: logo)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 92, maxHeight: 26)
+            }
             Text(card.company.isEmpty ? "WALLET" : card.company.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(look.foreground)

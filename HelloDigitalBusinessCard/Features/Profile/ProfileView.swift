@@ -53,12 +53,22 @@ struct ProfileView: View {
                 }
 
                 Section {
+                    ShareLink(item: AppLinks.appStore,
+                              subject: Text("Hello Card"),
+                              message: Text("Make your digital business card in seconds and add it to Apple Wallet — Hello Card:")) {
+                        Label("Share with a colleague", systemImage: "square.and.arrow.up")
+                    }
+                } footer: {
+                    Text("Loved the app? Share it with your team.")
+                }
+
+                Section {
                     LabeledContent("Version", value: appVersion)
                     Link(destination: URL(string: "https://gbict.nl")!) {
                         Label("Made by GB ICT", systemImage: "globe")
                     }
                 } footer: {
-                    Text("Your first card is free; Hello Card Pro unlocks unlimited cards. Your cards are stored on your device — no account required.")
+                    Text("Your first card is free; Hello Card Pro unlocks unlimited cards and your company logo. Cards are stored on your device.")
                 }
             }
             .navigationTitle("Account")

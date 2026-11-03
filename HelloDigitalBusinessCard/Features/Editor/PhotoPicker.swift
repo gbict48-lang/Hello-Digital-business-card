@@ -5,11 +5,13 @@ import PhotosUI
 /// for embedding in a card / vCard / pass.
 struct PhotoPickerButton: View {
     @Binding var photoData: Data?
+    var label: String = "Photo"
+    var icon: String = "photo.on.rectangle.angled"
     @State private var selection: PhotosPickerItem?
 
     var body: some View {
         PhotosPicker(selection: $selection, matching: .images, photoLibrary: .shared()) {
-            Label(photoData == nil ? "Add Photo" : "Change Photo", systemImage: "photo.on.rectangle.angled")
+            Label(photoData == nil ? "Add \(label)" : "Change \(label)", systemImage: icon)
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }

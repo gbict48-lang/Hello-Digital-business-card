@@ -3,9 +3,11 @@ import SwiftUI
 /// Create / edit a card with a live preview that updates as you type.
 struct CardEditorView: View {
     @Environment(CardStore.self) private var store
+    @Environment(StoreManager.self) private var purchases
     @Environment(\.dismiss) private var dismiss
 
     @State private var draft: BusinessCard
+    @State private var showsPaywall = false
     private let isNew: Bool
 
     init(card: BusinessCard, isNew: Bool) {
@@ -33,6 +35,32 @@ struct CardEditorView: View {
                             }
                         }
                     }
+                }
+
+                Section {
+                    if purchases.isPro {
+                        HStack {
+                            PhotoPickerButton(photoData: $draft.logoData, label: "Company logo", icon: "building.2.crop.circle")
+                            if draft.logoData != nil {
+                                Spacer()
+                                Button(role: .destructive) { draft.logoData = nil } label: { Text("Remove") }
+                            }
+                        }
+                    } else {
+                        Button { showsPaywall = true } label: {
+                            HStack {
+                                Label("Add company logo", systemImage: "building.2.crop.circle")
+                                Spacer()
+                                Text("PRO").font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(.tint, in: Capsule()).foregroundStyle(.white)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Company logo")
+                } footer: {
+                    Text("Shown on your card and as the logo on your Apple Wallet pass.")
                 }
 
                 Section("Identity") {
@@ -77,6 +105,9 @@ struct CardEditorView: View {
                         .disabled(!draft.hasContent)
                         .fontWeight(.semibold)
                 }
+            }
+            .sheet(isPresented: $showsPaywall) {
+                PaywallView()
             }
         }
     }

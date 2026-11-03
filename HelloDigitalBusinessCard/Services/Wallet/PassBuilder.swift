@@ -5,10 +5,12 @@ import SwiftUI
 /// Builds the raw files for an Apple Wallet pass. Signed & zipped on-device by
 /// `PassSigner`.
 ///
-/// Follows Apple's Wallet HIG: a clean `generic` pass with ONE solid background
-/// colour, high-contrast text, a small set of fields, and the photo shown as a
-/// square thumbnail (Wallet rounds it) — never a stretched image. The in-app
-/// `WalletPassPreview` mirrors this exactly.
+/// Follows Apple's Wallet HIG for a premium look: a **generic** pass with a
+/// dark, muted background (bright solid colours read as cheap), high-contrast
+/// white values + grey labels, the company **logo** top-left at its natural
+/// aspect ratio, the person photo as a square **thumbnail** on the right, the
+/// name as the single primary field, a handful of contact fields, and a QR
+/// vCard. `WalletPassPreview` mirrors this via the shared `PassAppearance`.
 enum PassBuilder {
 
     static func makeFiles(for card: BusinessCard) -> [String: Data] {
@@ -27,7 +29,7 @@ enum PassBuilder {
     // MARK: - pass.json
 
     private static func passDictionary(for card: BusinessCard) -> [String: Any] {
-        let appearance = PassAppearance(card: card)
+        let look = PassAppearance(card: card)
 
         var dict: [String: Any] = [
             "formatVersion": 1,
@@ -36,38 +38,41 @@ enum PassBuilder {
             "serialNumber": card.id.uuidString,
             "organizationName": card.company.isEmpty ? PassConstants.organizationName : card.company,
             "description": "\(card.fullName) — Digital Business Card",
-            "foregroundColor": appearance.foregroundRGB,
-            "labelColor": appearance.labelRGB,
-            "backgroundColor": appearance.backgroundRGB,
+            "foregroundColor": look.foregroundRGB,
+            "labelColor": look.labelRGB,
+            "backgroundColor": look.backgroundRGB,
             "barcodes": [[
                 "format": "PKBarcodeFormatQR",
                 "message": VCardBuilder.makeVCard(for: card, includePhoto: false),
                 "messageEncoding": "iso-8859-1",
-                "altText": card.fullName
+                "altText": "Scan for contact"
             ]]
         ]
         if !card.company.isEmpty { dict["logoText"] = card.company }
 
-        var generic: [String: Any] = [
-            "primaryFields": [field("name", "", card.fullName)]
-        ]
+        var generic: [String: Any] = [:]
 
-        var secondary: [[String: String]] = []
-        if !card.jobTitle.isEmpty { secondary.append(field("role", "ROLE", card.jobTitle)) }
-        if card.company.isEmpty, !card.city.isEmpty {
-            secondary.append(field("city", "LOCATION", card.city))
+        if !card.jobTitle.isEmpty {
+            generic["headerFields"] = [field("role", "", card.jobTitle)]
         }
+        generic["primaryFields"] = [field("name", "", card.fullName)]
+
+        // With a QR barcode Wallet shows only 4 combined secondary+auxiliary
+        // fields, so keep the front lean and push the rest to the back.
+        var secondary: [[String: String]] = []
+        if !card.email.isEmpty { secondary.append(field("email", "EMAIL", card.email)) }
+        let firstPhone = card.phone.isEmpty ? card.mobile : card.phone
+        if !firstPhone.isEmpty { secondary.append(field("phone", "PHONE", firstPhone)) }
         if !secondary.isEmpty { generic["secondaryFields"] = secondary }
 
         var auxiliary: [[String: String]] = []
-        if !card.email.isEmpty { auxiliary.append(field("email", "EMAIL", card.email)) }
-        let firstPhone = card.phone.isEmpty ? card.mobile : card.phone
-        if !firstPhone.isEmpty { auxiliary.append(field("phone", "PHONE", firstPhone)) }
+        if !card.website.isEmpty { auxiliary.append(field("web", "WEBSITE", card.website)) }
+        if card.company.isEmpty, !card.city.isEmpty { auxiliary.append(field("city", "LOCATION", card.city)) }
         if !auxiliary.isEmpty { generic["auxiliaryFields"] = auxiliary }
 
         var back: [[String: String]] = []
         if !card.mobile.isEmpty && card.mobile != firstPhone { back.append(field("bmobile", "Mobile", card.mobile)) }
-        if !card.website.isEmpty { back.append(field("bweb", "Website", card.website)) }
+        if !card.department.isEmpty { back.append(field("bdept", "Department", card.department)) }
         let address = [card.street, card.postalCode, card.city, card.country]
             .filter { !$0.isEmpty }.joined(separator: ", ")
         if !address.isEmpty { back.append(field("baddr", "Address", address)) }
@@ -86,22 +91,38 @@ enum PassBuilder {
     private static func makeImages(for card: BusinessCard) -> [String: UIImage] {
         var images: [String: UIImage] = [:]
 
-        // Required icon (square monogram — used on the lock screen / notifications).
         for scale in [1, 2, 3] as [CGFloat] {
             if let icon = monogram(card, points: 29, scale: scale) {
-                images[scale == 1 ? "icon.png" : "icon@\(Int(scale))x.png"] = icon
+                images[name("icon", scale)] = icon
             }
-        }
-
-        // Square photo thumbnail (Wallet rounds it). Only when a photo exists.
-        if card.photoData != nil {
-            for scale in [1, 2, 3] as [CGFloat] {
-                if let thumb = thumbnail(card, points: 90, scale: scale) {
-                    images[scale == 1 ? "thumbnail.png" : "thumbnail@\(Int(scale))x.png"] = thumb
-                }
+            // Company logo (top-left) — natural aspect, transparent.
+            if let logo = logoImage(card, scale: scale) {
+                images[name("logo", scale)] = logo
+            }
+            // Person photo as a square thumbnail (tight centre crop).
+            if card.photoData != nil, let thumb = thumbnail(card, points: 90, scale: scale) {
+                images[name("thumbnail", scale)] = thumb
             }
         }
         return images
+    }
+
+    private static func name(_ base: String, _ scale: CGFloat) -> String {
+        scale == 1 ? "\(base).png" : "\(base)@\(Int(scale))x.png"
+    }
+
+    private static func logoImage(_ card: BusinessCard, scale: CGFloat) -> UIImage? {
+        guard let data = card.logoData, let image = UIImage(data: data),
+              image.size.width > 0, image.size.height > 0 else { return nil }
+        let maxW: CGFloat = 160, maxH: CGFloat = 50
+        let s = min(maxW / image.size.width, maxH / image.size.height)
+        let size = CGSize(width: image.size.width * s, height: image.size.height * s)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 
     private static func thumbnail(_ card: BusinessCard, points: CGFloat, scale: CGFloat) -> UIImage? {
@@ -123,7 +144,7 @@ enum PassBuilder {
         format.scale = scale
         format.opaque = true
         return UIGraphicsImageRenderer(size: CGSize(width: points, height: points), format: format).image { _ in
-            card.theme.accent.uiColor.setFill()
+            UIColor(PassAppearance(card: card).background).setFill()
             UIRectFill(CGRect(x: 0, y: 0, width: points, height: points))
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: points * 0.42, weight: .semibold),
@@ -142,6 +163,8 @@ enum PassBuilder {
 }
 
 /// Shared colour logic so the real pass and the in-app preview always match.
+/// A dark, muted version of the card's accent — premium, high-contrast,
+/// still subtly on-brand for any chosen colour.
 struct PassAppearance {
     let background: Color
     let foreground: Color
@@ -151,13 +174,20 @@ struct PassAppearance {
     let labelRGB: String
 
     init(card: BusinessCard) {
-        let accent = card.theme.accent
-        let isLight = (0.299 * accent.red + 0.587 * accent.green + 0.114 * accent.blue) > 0.6
-        background = accent.color
-        foreground = isLight ? Color(hex: "#111114") : .white
-        label = isLight ? Color(hex: "#5A5A5F") : Color(white: 1, opacity: 0.82)
-        backgroundRGB = "rgb(\(Int(accent.red * 255)), \(Int(accent.green * 255)), \(Int(accent.blue * 255)))"
-        foregroundRGB = isLight ? "rgb(17, 17, 20)" : "rgb(255, 255, 255)"
-        labelRGB = isLight ? "rgb(90, 90, 95)" : "rgb(235, 235, 245)"
+        let a = card.theme.accent
+        // Mix the accent heavily toward a near-black charcoal so any colour
+        // becomes a deep, sophisticated tint instead of a flat bright block.
+        let dark = (r: 0.094, g: 0.094, b: 0.106)
+        let t = 0.72
+        let r = a.red * (1 - t) + dark.r * t
+        let g = a.green * (1 - t) + dark.g * t
+        let b = a.blue * (1 - t) + dark.b * t
+
+        background = Color(.sRGB, red: r, green: g, blue: b, opacity: 1)
+        foreground = .white
+        label = Color(red: 0.70, green: 0.70, blue: 0.74)
+        backgroundRGB = "rgb(\(Int(r * 255)), \(Int(g * 255)), \(Int(b * 255)))"
+        foregroundRGB = "rgb(255, 255, 255)"
+        labelRGB = "rgb(178, 178, 186)"
     }
 }

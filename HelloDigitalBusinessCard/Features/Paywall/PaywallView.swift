@@ -7,11 +7,11 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let perks: [(String, String, String)] = [
-        ("rectangle.stack.badge.plus", "Unlimited cards", "Create a card for every role, side-project or language."),
+        ("rectangle.stack.badge.plus", "Unlimited cards", "A card for every role, company or language — add colleagues too."),
+        ("building.2.crop.circle", "Your company logo", "Add your brand to the card and the Apple Wallet pass."),
         ("paintpalette.fill", "Every design", "All templates, colours and Liquid Glass styles."),
-        ("wallet.pass.fill", "Apple Wallet", "Add every card to Wallet with a scannable QR."),
-        ("qrcode", "Share without limits", "Unlimited QR shares and .vcf exports — forever."),
-        ("heart.fill", "Support indie", "A one-time purchase. No subscription, no account.")
+        ("wallet.pass.fill", "Wallet & sharing", "Add every card to Apple Wallet with unlimited QR shares."),
+        ("bolt.heart.fill", "One-time, yours forever", "No subscription. Pay once — restores on all your devices.")
     ]
 
     var body: some View {
@@ -51,7 +51,7 @@ struct PaywallView: View {
                         Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center).padding(.horizontal, 24)
                     }
 
-                    Text("One-time purchase. No account required — your upgrade is tied to your Apple ID and restores on all your devices.")
+                    Text("A one-time purchase, tied to your Apple ID — it restores automatically on all your devices. No subscription.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .multilineTextAlignment(.center)

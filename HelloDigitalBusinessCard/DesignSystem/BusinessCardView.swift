@@ -96,7 +96,15 @@ struct BusinessCardView: View {
             HStack(alignment: .top) {
                 avatar
                 Spacer(minLength: 8)
-                if showsQRHint { qrBadge }
+                if let data = card.logoData, let logo = UIImage(data: data) {
+                    Image(uiImage: logo)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 88, maxHeight: 30)
+                        .opacity(0.95)
+                } else if showsQRHint {
+                    qrBadge
+                }
             }
 
             Spacer(minLength: 12)
