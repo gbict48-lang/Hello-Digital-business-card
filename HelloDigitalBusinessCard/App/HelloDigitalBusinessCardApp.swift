@@ -4,12 +4,14 @@ import SwiftUI
 struct HelloDigitalBusinessCardApp: App {
     @State private var store = CardStore()
     @State private var auth = AuthManager()
+    @State private var purchases = StoreManager()
 
     var body: some Scene {
         WindowGroup {
             AppContainerView()
                 .environment(store)
                 .environment(auth)
+                .environment(purchases)
                 .tint(.accentColor)
         }
     }

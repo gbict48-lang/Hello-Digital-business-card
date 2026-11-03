@@ -13,6 +13,16 @@ struct CardTheme: Codable, Hashable {
 
         var id: String { rawValue }
 
+        /// Whether this style actually renders the secondary colour. Styles that
+        /// don't (Minimal, Bold) hide the secondary picker so it never looks
+        /// like "the second colour does nothing".
+        var usesSecondary: Bool {
+            switch self {
+            case .gradient, .aurora, .glass, .spotlight: true
+            case .minimal, .bold: false
+            }
+        }
+
         var displayName: String {
             switch self {
             case .gradient:  "Gradient"

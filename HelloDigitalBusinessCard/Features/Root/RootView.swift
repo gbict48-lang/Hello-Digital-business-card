@@ -3,9 +3,11 @@ import SwiftUI
 struct RootView: View {
     @Environment(CardStore.self) private var store
     @Environment(AuthManager.self) private var auth
+    @Environment(StoreManager.self) private var purchases
     @State private var editorCard: BusinessCard?
     @State private var isCreatingNew = false
     @State private var showsProfile = false
+    @State private var showsPaywall = false
 
     var body: some View {
         NavigationStack {
@@ -24,7 +26,7 @@ struct RootView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { startNewCard() } label: {
+                    Button { newCardTapped() } label: {
                         Image(systemName: "plus")
                     }
                 }
@@ -35,6 +37,18 @@ struct RootView: View {
         }
         .sheet(isPresented: $showsProfile) {
             ProfileView()
+        }
+        .sheet(isPresented: $showsPaywall) {
+            PaywallView()
+        }
+    }
+
+    /// Enforces the free-tier limit: the first card is free, more need Pro.
+    private func newCardTapped() {
+        if purchases.canCreateCard(existingCount: store.cards.count) {
+            startNewCard()
+        } else {
+            showsPaywall = true
         }
     }
 

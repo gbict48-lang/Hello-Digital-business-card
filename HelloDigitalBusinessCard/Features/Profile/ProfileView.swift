@@ -4,8 +4,10 @@ import AuthenticationServices
 /// Account & about. No app configuration here — the app is designed to just work.
 struct ProfileView: View {
     @Environment(AuthManager.self) private var auth
+    @Environment(StoreManager.self) private var purchases
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showsPaywall = false
 
     var body: some View {
         NavigationStack {
@@ -13,6 +15,33 @@ struct ProfileView: View {
                 Section {
                     accountRow
                         .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                }
+
+                Section {
+                    if purchases.isPro {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Hello Card Pro").font(.headline)
+                                Text("Unlimited cards unlocked. Thank you 🤍").font(.caption).foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "sparkles").foregroundStyle(.tint)
+                        }
+                    } else {
+                        Button { showsPaywall = true } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Upgrade to Pro").font(.headline)
+                                    Text("Unlimited cards and every design\(purchases.displayPrice.isEmpty ? "" : " · \(purchases.displayPrice)")")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "sparkles").foregroundStyle(.tint)
+                            }
+                        }
+                        Button("Restore purchases") { Task { await purchases.restore() } }
+                            .font(.subheadline)
+                    }
                 }
 
                 if auth.state == .signedIn {
@@ -29,7 +58,7 @@ struct ProfileView: View {
                         Label("Made by GB ICT", systemImage: "globe")
                     }
                 } footer: {
-                    Text("Hello Digital Business Card is free. Your cards are stored on your device.")
+                    Text("Your first card is free; Hello Card Pro unlocks unlimited cards. Your cards are stored on your device — no account required.")
                 }
             }
             .navigationTitle("Account")
@@ -38,6 +67,9 @@ struct ProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showsPaywall) {
+                PaywallView()
             }
         }
     }

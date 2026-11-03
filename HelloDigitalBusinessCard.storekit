@@ -1,0 +1,30 @@
+{
+  "identifier" : "5B9F1C20",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "3.99",
+      "familyShareable" : false,
+      "internalID" : "HC-PRO-001",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited business cards and every design. One-time purchase.",
+          "displayName" : "Hello Card Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "nl.gbict.hellodigitalbusinesscard.pro",
+      "referenceName" : "Hello Card Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "476FB5QW34"
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

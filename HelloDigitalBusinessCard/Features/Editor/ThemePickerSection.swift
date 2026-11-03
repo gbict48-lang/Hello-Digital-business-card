@@ -13,14 +13,16 @@ struct ThemePickerSection: View {
             presetsRow
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
 
-            ColorPicker("Accent colour", selection: Binding(
+            ColorPicker(card.theme.style.usesSecondary ? "Accent colour" : "Card colour", selection: Binding(
                 get: { card.theme.accent.color },
                 set: { card.theme.accent = RGBAColor($0) }
             ))
-            ColorPicker("Secondary colour", selection: Binding(
-                get: { card.theme.secondary.color },
-                set: { card.theme.secondary = RGBAColor($0) }
-            ))
+            if card.theme.style.usesSecondary {
+                ColorPicker("Secondary colour", selection: Binding(
+                    get: { card.theme.secondary.color },
+                    set: { card.theme.secondary = RGBAColor($0) }
+                ))
+            }
         }
     }
 
