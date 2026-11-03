@@ -45,7 +45,7 @@ final class WalletService {
         PKPassLibrary.isPassLibraryAvailable() && credentials != nil
     }
 
-    func preparePass(for card: BusinessCard) async {
+    func preparePass(for card: BusinessCard, showBranding: Bool = true) async {
         guard PKPassLibrary.isPassLibraryAvailable() else {
             state = .failed(WalletError.walletUnavailable.localizedDescription)
             return
@@ -64,7 +64,8 @@ final class WalletService {
             // Signing is CPU-bound — keep it off the main actor.
             let data = try await Task.detached(priority: .userInitiated) {
                 try PassSigner.makePass(for: card, credentials: credentials,
-                                        backgroundImages: backgroundImages)
+                                        backgroundImages: backgroundImages,
+                                        showBranding: showBranding)
             }.value
             preparedPass = try PKPass(data: data)
             state = .ready

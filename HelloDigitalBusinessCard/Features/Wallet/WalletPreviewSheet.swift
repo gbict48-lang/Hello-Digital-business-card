@@ -4,6 +4,7 @@ import SwiftUI
 /// and adds it to Apple Wallet — so what they see is what they get.
 struct WalletPreviewSheet: View {
     @Environment(CardStore.self) private var store
+    @Environment(StoreManager.self) private var purchases
     @Environment(\.dismiss) private var dismiss
     let cardID: UUID
 
@@ -17,7 +18,7 @@ struct WalletPreviewSheet: View {
             if let card {
                 ScrollView {
                     VStack(spacing: 26) {
-                        WalletPassPreview(card: card)
+                        WalletPassPreview(card: card, showBranding: !purchases.isPro)
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
 
@@ -71,7 +72,7 @@ struct WalletPreviewSheet: View {
     private func addBar(_ card: BusinessCard) -> some View {
         VStack(spacing: 6) {
             Button {
-                Task { await wallet.preparePass(for: card) }
+                Task { await wallet.preparePass(for: card, showBranding: !purchases.isPro) }
             } label: {
                 HStack(spacing: 8) {
                     if wallet.state == .working {

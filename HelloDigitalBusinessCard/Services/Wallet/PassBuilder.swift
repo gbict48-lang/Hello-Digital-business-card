@@ -14,13 +14,18 @@ import SwiftUI
 /// the rendered `background.png` both come from the shared `WalletCardBackground`.
 enum PassBuilder {
 
+    /// Small attribution shown under the QR on free passes; removed for Pro.
+    static let brandingText = "Made with Hello Digital Business Card"
+
     /// `backgroundImages` are the rasterised design (`background.png`, `@2x`, `@3x`),
     /// rendered on the main actor by `WalletArtRenderer` and passed in here.
+    /// `showBranding` adds the subtle "Made with…" line for free users.
     static func makeFiles(for card: BusinessCard,
-                          backgroundImages: [String: Data] = [:]) -> [String: Data] {
+                          backgroundImages: [String: Data] = [:],
+                          showBranding: Bool = true) -> [String: Data] {
         var files: [String: Data] = [:]
         if let passJSON = try? JSONSerialization.data(
-            withJSONObject: passDictionary(for: card), options: [.sortedKeys]
+            withJSONObject: passDictionary(for: card, showBranding: showBranding), options: [.sortedKeys]
         ) {
             files["pass.json"] = passJSON
         }
@@ -34,7 +39,7 @@ enum PassBuilder {
 
     // MARK: - pass.json
 
-    private static func passDictionary(for card: BusinessCard) -> [String: Any] {
+    private static func passDictionary(for card: BusinessCard, showBranding: Bool) -> [String: Any] {
         let look = PassAppearance(card: card)
 
         var dict: [String: Any] = [
@@ -51,7 +56,8 @@ enum PassBuilder {
                 "format": "PKBarcodeFormatQR",
                 "message": VCardBuilder.makeVCard(for: card, includePhoto: false),
                 "messageEncoding": "iso-8859-1",
-                "altText": "Scan for contact"
+                // Free passes carry a subtle attribution under the QR; Pro removes it.
+                "altText": showBranding ? brandingText : "Scan for contact"
             ]]
         ]
         if !card.company.isEmpty { dict["logoText"] = card.company }

@@ -5,6 +5,7 @@ import SwiftUI
 /// shares `PassAppearance` for identical colours.
 struct WalletPassPreview: View {
     let card: BusinessCard
+    var showBranding: Bool = true
 
     private var look: PassAppearance { PassAppearance(card: card) }
 
@@ -18,6 +19,13 @@ struct WalletPassPreview: View {
             fields
             Spacer(minLength: 12)
             qr
+            if showBranding {
+                Text(PassBuilder.brandingText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(look.label)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+            }
         }
         .padding(18)
         .frame(maxWidth: .infinity)
