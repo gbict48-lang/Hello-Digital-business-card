@@ -13,8 +13,10 @@ import ZIPFoundation
 ///  4. zip everything into a `.pkpass`.
 enum PassSigner {
 
-    static func makePass(for card: BusinessCard, credentials: PassCredentials) throws -> Data {
-        var files = PassBuilder.makeFiles(for: card)
+    static func makePass(for card: BusinessCard,
+                         credentials: PassCredentials,
+                         backgroundImages: [String: Data] = [:]) throws -> Data {
+        var files = PassBuilder.makeFiles(for: card, backgroundImages: backgroundImages)
 
         // 2. manifest.json — SHA-1 digest of each file.
         var manifest: [String: String] = [:]

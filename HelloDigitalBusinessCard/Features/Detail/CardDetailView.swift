@@ -7,10 +7,9 @@ struct CardDetailView: View {
 
     @State private var wallet = WalletService()
     @State private var activeSheet: ActiveSheet?
-    @State private var shareItems: [Any] = []
 
     private enum ActiveSheet: Int, Identifiable {
-        case qr, wallet, share
+        case qr, wallet
         var id: Int { rawValue }
     }
 
@@ -42,7 +41,11 @@ struct CardDetailView: View {
                     Menu {
                         Button { onEdit(card) } label: { Label("Edit", systemImage: "pencil") }
                         Button { store.makePrimary(card) } label: { Label("Set as Primary", systemImage: "star") }
-                        Button { exportVCard(card) } label: { Label("Export .vcf", systemImage: "square.and.arrow.up") }
+                        if let url = VCardExporter.exportFile(for: card) {
+                            ShareLink(item: url, preview: SharePreview(shareName(card))) {
+                                Label("Export .vcf", systemImage: "square.and.arrow.up")
+                            }
+                        }
                         Divider()
                         Button(role: .destructive) { store.delete(card) } label: {
                             Label("Delete", systemImage: "trash")
@@ -59,10 +62,12 @@ struct CardDetailView: View {
                 if let card { ShareCardView(card: card) }
             case .wallet:
                 WalletPreviewSheet(cardID: cardID)
-            case .share:
-                ShareSheet(items: shareItems)
             }
         }
+    }
+
+    private func shareName(_ card: BusinessCard) -> String {
+        card.fullName.isEmpty ? "Contact" : card.fullName
     }
 
     // MARK: - Actions
@@ -85,22 +90,15 @@ struct CardDetailView: View {
                     .buttonStyle(GlassButtonStyle())
                 }
 
-                Button { exportVCard(card) } label: {
-                    Label("Share Card", systemImage: "square.and.arrow.up")
+                if let url = VCardExporter.exportFile(for: card) {
+                    ShareLink(item: url, preview: SharePreview(shareName(card))) {
+                        Label("Share Card", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(GlassButtonStyle())
                 }
-                .buttonStyle(GlassButtonStyle())
             }
         }
         .padding(.horizontal, 20)
-    }
-
-    private func exportVCard(_ card: BusinessCard) {
-        var items: [Any] = []
-        if let file = VCardExporter.exportFile(for: card) { items.append(file) }
-        if let qr = QRCodeGenerator.vCardImage(for: card) { items.append(qr) }
-        shareItems = items
-        // Present on the next runloop so the share sheet has its items ready.
-        DispatchQueue.main.async { activeSheet = .share }
     }
 }
 

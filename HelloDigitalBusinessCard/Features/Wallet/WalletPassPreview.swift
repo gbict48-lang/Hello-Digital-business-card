@@ -21,7 +21,7 @@ struct WalletPassPreview: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity)
-        .background(look.background)
+        .background(WalletCardBackground(card: card))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)

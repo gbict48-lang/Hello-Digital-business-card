@@ -58,9 +58,13 @@ final class WalletService {
         state = .working
         preparedPass = nil
         do {
+            // Render the design background on the main actor (ImageRenderer is
+            // main-actor only), then sign off the main actor.
+            let backgroundImages = WalletArtRenderer.backgroundImages(for: card)
             // Signing is CPU-bound — keep it off the main actor.
             let data = try await Task.detached(priority: .userInitiated) {
-                try PassSigner.makePass(for: card, credentials: credentials)
+                try PassSigner.makePass(for: card, credentials: credentials,
+                                        backgroundImages: backgroundImages)
             }.value
             preparedPass = try PKPass(data: data)
             state = .ready

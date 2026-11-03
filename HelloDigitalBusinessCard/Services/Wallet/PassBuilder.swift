@@ -5,15 +5,19 @@ import SwiftUI
 /// Builds the raw files for an Apple Wallet pass. Signed & zipped on-device by
 /// `PassSigner`.
 ///
-/// Follows Apple's Wallet HIG for a premium look: a **generic** pass with a
-/// dark, muted background (bright solid colours read as cheap), high-contrast
-/// white values + grey labels, the company **logo** top-left at its natural
-/// aspect ratio, the person photo as a square **thumbnail** on the right, the
-/// name as the single primary field, a handful of contact fields, and a QR
-/// vCard. `WalletPassPreview` mirrors this via the shared `PassAppearance`.
+/// Follows Apple's Wallet HIG for a premium look: an **eventTicket** pass — the
+/// one style that carries a full-bleed **background image**, so the card's chosen
+/// design (gradient / aurora / spotlight / …) actually reaches Wallet instead of
+/// a flat colour. High-contrast white values + grey labels, the company **logo**
+/// top-left, the person photo as a square **thumbnail**, the name as the primary
+/// field, a handful of contact fields, and a QR vCard. `WalletPassPreview` and
+/// the rendered `background.png` both come from the shared `WalletCardBackground`.
 enum PassBuilder {
 
-    static func makeFiles(for card: BusinessCard) -> [String: Data] {
+    /// `backgroundImages` are the rasterised design (`background.png`, `@2x`, `@3x`),
+    /// rendered on the main actor by `WalletArtRenderer` and passed in here.
+    static func makeFiles(for card: BusinessCard,
+                          backgroundImages: [String: Data] = [:]) -> [String: Data] {
         var files: [String: Data] = [:]
         if let passJSON = try? JSONSerialization.data(
             withJSONObject: passDictionary(for: card), options: [.sortedKeys]
@@ -23,6 +27,8 @@ enum PassBuilder {
         for (name, image) in makeImages(for: card) {
             if let png = image.pngData() { files[name] = png }
         }
+        // The design background (already PNG-encoded at each scale).
+        for (name, data) in backgroundImages { files[name] = data }
         return files
     }
 
@@ -82,7 +88,7 @@ enum PassBuilder {
         if !card.notes.isEmpty { back.append(field("bnotes", "Notes", card.notes)) }
         if !back.isEmpty { generic["backFields"] = back }
 
-        dict["generic"] = generic
+        dict["eventTicket"] = generic
         return dict
     }
 
