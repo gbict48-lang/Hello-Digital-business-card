@@ -8,6 +8,8 @@ struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @State private var showsPaywall = false
+    @State private var showsTerms = false
+    @State private var showsPrivacy = false
 
     var body: some View {
         NavigationStack {
@@ -62,6 +64,15 @@ struct ProfileView: View {
                     Text("Loved the app? Share it with your team.")
                 }
 
+                Section("Legal") {
+                    Button { showsPrivacy = true } label: {
+                        Label("Privacy Policy", systemImage: "hand.raised")
+                    }
+                    Button { showsTerms = true } label: {
+                        Label("Terms of Use", systemImage: "doc.text")
+                    }
+                }
+
                 Section {
                     LabeledContent("Version", value: appVersion)
                     Link(destination: URL(string: "https://gbict.nl")!) {
@@ -81,6 +92,8 @@ struct ProfileView: View {
             .sheet(isPresented: $showsPaywall) {
                 PaywallView()
             }
+            .sheet(isPresented: $showsTerms) { LegalView(document: .terms) }
+            .sheet(isPresented: $showsPrivacy) { LegalView(document: .privacy) }
         }
     }
 

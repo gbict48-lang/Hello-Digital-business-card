@@ -21,7 +21,11 @@ struct WalletPreviewSheet: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
 
-                        presets(for: card)
+                        Text("This is exactly how your card looks in Apple Wallet. To change the colour or logo, edit the card.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 30)
 
                         if case .failed(let message) = wallet.state {
                             Text(message)
@@ -60,45 +64,6 @@ struct WalletPreviewSheet: View {
                 Button("Done") { dismiss() }
             }
         }
-    }
-
-    // MARK: - Colour presets
-
-    private func presets(for card: BusinessCard) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Colour")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 24)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(Array(CardTheme.presets.enumerated()), id: \.offset) { _, preset in
-                        Button {
-                            apply(preset, to: card)
-                        } label: {
-                            Circle()
-                                .fill(preset.accent.color)
-                                .frame(width: 38, height: 38)
-                                .overlay(
-                                    Circle().strokeBorder(
-                                        card.theme.accent == preset.accent ? Color.primary : .white.opacity(0.4),
-                                        lineWidth: card.theme.accent == preset.accent ? 3 : 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 24)
-            }
-        }
-    }
-
-    private func apply(_ preset: CardTheme, to card: BusinessCard) {
-        var updated = card
-        updated.theme.accent = preset.accent
-        updated.theme.secondary = preset.secondary
-        withAnimation(.snappy) { store.update(updated) }
     }
 
     // MARK: - Add button

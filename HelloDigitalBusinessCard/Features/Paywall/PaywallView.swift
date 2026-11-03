@@ -5,6 +5,8 @@ import StoreKit
 struct PaywallView: View {
     @Environment(StoreManager.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var showTerms = false
+    @State private var showPrivacy = false
 
     private let perks: [(String, String, String)] = [
         ("rectangle.stack.badge.plus", "Unlimited cards", "A card for every role, company or language — add colleagues too."),
@@ -56,7 +58,15 @@ struct PaywallView: View {
                         .foregroundStyle(.tertiary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
-                        .padding(.bottom, 24)
+
+                    HStack(spacing: 14) {
+                        Button("Terms of Use") { showTerms = true }
+                        Text("·").foregroundStyle(.tertiary)
+                        Button("Privacy Policy") { showPrivacy = true }
+                    }
+                    .font(.caption2)
+                    .tint(.secondary)
+                    .padding(.bottom, 24)
                 }
                 .padding(.top, 10)
             }
@@ -69,6 +79,9 @@ struct PaywallView: View {
                 }
             }
             .onChange(of: store.isPro) { _, pro in if pro { dismiss() } }
+            .sheet(isPresented: $showTerms) { LegalView(document: .terms) }
+            .sheet(isPresented: $showPrivacy) { LegalView(document: .privacy) }
+            .task { if store.proProduct == nil { await store.loadProducts() } }
         }
     }
 
@@ -92,10 +105,16 @@ struct PaywallView: View {
     @ViewBuilder
     private var buyButton: some View {
         Button {
-            Task { await store.purchasePro() }
+            if store.proProduct == nil {
+                Task { await store.loadProducts() }   // retry fetching the product
+            } else {
+                Task { await store.purchasePro() }
+            }
         } label: {
             if store.isPurchasing {
                 ProgressView().tint(.white)
+            } else if store.proProduct == nil {
+                Text("Tap to retry")
             } else {
                 VStack(spacing: 2) {
                     Text("Go Pro")

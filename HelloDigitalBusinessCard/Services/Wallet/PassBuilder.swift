@@ -175,19 +175,31 @@ struct PassAppearance {
 
     init(card: BusinessCard) {
         let a = card.theme.accent
-        // Mix the accent heavily toward a near-black charcoal so any colour
-        // becomes a deep, sophisticated tint instead of a flat bright block.
-        let dark = (r: 0.094, g: 0.094, b: 0.106)
-        let t = 0.72
-        let r = a.red * (1 - t) + dark.r * t
-        let g = a.green * (1 - t) + dark.g * t
-        let b = a.blue * (1 - t) + dark.b * t
+        // Deepen the chosen colour into a rich JEWEL tone (keep saturation,
+        // cap brightness) so it stays clearly on-brand but reads premium —
+        // deep bronze, navy, forest, plum — never neon, never muddy brown.
+        let ui = UIColor(red: a.red, green: a.green, blue: a.blue, alpha: 1)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, al: CGFloat = 0
+        ui.getHue(&h, saturation: &s, brightness: &b, alpha: &al)
 
-        background = Color(.sRGB, red: r, green: g, blue: b, opacity: 1)
+        let bgColor: UIColor
+        if s < 0.16 {
+            bgColor = UIColor(white: 0.12, alpha: 1)                     // charcoal for greys / black / white
+        } else {
+            bgColor = UIColor(hue: h,
+                              saturation: min(max(s, 0.60), 0.92),
+                              brightness: min(b, 0.52),
+                              alpha: 1)
+        }
+
+        var r: CGFloat = 0, g: CGFloat = 0, bl: CGFloat = 0, aa: CGFloat = 0
+        bgColor.getRed(&r, green: &g, blue: &bl, alpha: &aa)
+
+        background = Color(uiColor: bgColor)
         foreground = .white
-        label = Color(red: 0.70, green: 0.70, blue: 0.74)
-        backgroundRGB = "rgb(\(Int(r * 255)), \(Int(g * 255)), \(Int(b * 255)))"
+        label = Color(white: 0.72)
+        backgroundRGB = "rgb(\(Int(r * 255)), \(Int(g * 255)), \(Int(bl * 255)))"
         foregroundRGB = "rgb(255, 255, 255)"
-        labelRGB = "rgb(178, 178, 186)"
+        labelRGB = "rgb(184, 184, 190)"
     }
 }
