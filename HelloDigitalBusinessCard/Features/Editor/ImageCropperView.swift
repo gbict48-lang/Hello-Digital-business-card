@@ -33,7 +33,7 @@ struct ImageCropperView: View {
                                       controller: controller)
                         .frame(width: apertureW, height: apertureH)
                         .clipShape(aperture(apertureH))
-                        .overlay(aperture(apertureH).strokeBorder(.white.opacity(0.8), lineWidth: 2))
+                        .overlay(aperture(apertureH).stroke(Color.white.opacity(0.8), lineWidth: 2))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
